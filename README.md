@@ -1,0 +1,117 @@
+## League of Legends API wrapper in PHP
+
+
+### Introduction
+
+Simple PHP wrapper for [League of legends API](https://developer.riotgames.com/api/methods).
+
+This library implements two custom exceptions to catch your API rate limits (ServiceRateLimitException && UserRateLimitException).
+
+It also implements [Doctrine cache](https://github.com/doctrine/cache) to cache the API results into your favorite cache driver.
+
+### Migration from 0.* to 1.*
+
+Three main features breaking BC caused a bump to the 1.* version: 
+* Cache implementation
+* AbstractRateLimitException
+* Return of an ApiResult object instead of an array
+
+Only the third one can actually break BC. You should now use the **getResult()** method on the ApiResult object returned.
+
+### How to use
+
+#### Basic use
+
+You first have to select the API you want to fetch from and then the specific method.
+Each call will return an **ApiResult** object containing the URL called, the Guzzle Response object and an array containing the API result.
+
+To get the result you can call the method **getResult()** on the ApiResult object.
+
+```php
+$apiClient = new \LoLApi\ApiClient(\LoLApi\ApiClient::REGION_EUW, 'my-key');
+
+$apiClient->getMatchApi()->getMatchListBySummonerId(2);
+$apiClient->getMatchApi()->getMatchByMatchId(2, true);
+$apiClient->getSummonerApi()->getSummonerBySummonerName('MySummonerName');
+$apiClient->getSummonerApi()->getSummonerBySummonerId(2);
+$apiClient->getMasteriesApi()->getMasteriesBySummonerId(2);
+$apiClient->getRunesApi()->getRunesBySummonerId(2);
+$apiClient->getSummonerApi()->getSummonerNameBySummonerId(2);
+$apiClient->getChampionApi()->getChampionById(20);
+$apiClient->getFeaturedGamesApi()->getFeaturedGames();
+$apiClient->getStatsApi()->getRankedStatsBySummonerId(2);
+$apiClient->getGameApi()->getRecentGamesBySummonerId(2);
+$apiClient->getSpectatorApi()->getCurrentGameByPlatformIdAndSummonerId('EUW1', 2);
+```
+
+#### Use cache
+
+By default Symfony NullAdapter cache is used. You can specify another Cache Adapter (implementing PSR6 Adapters) to the ApiClient.
+
+Example with Predis :
+
+```php
+use Symfony\Component\Cache\Adapter\RedisAdapter;
+
+$client = new \Predis\Client([
+    'scheme' => 'tcp',
+    'host'   => '127.0.0.1',
+    'port'   => 6379,
+]);
+
+$redisAdapter = new RedisAdapter($client);
+
+$apiClient->setCacheProvider($redisAdapter);
+
+// This will call the API and return to you an ApiResult object
+$result = $apiClient->getSummonerApi()->getSummonerBySummonerName('MySummonerName');
+
+// Let's cache this result for 60 seconds into Redis
+$apiClient->cacheApiResult($result, 60);
+
+// This will fetch the data from Redis and return to you an ApiResult object
+$result = $apiClient->getSummonerApi()->getSummonerBySummonerName('MySummonerName');
+```
+
+The default ttl value **cacheApiResult()** method is 60 seconds.
+
+#### Rate limit
+
+When you reach the rate limit (User or Service) the library will throw you an implementation of the AbstractRateLimitException. You can get the type of rate limit and the time to wait before a new call (Riot is very strict on the rate limit respect).
+
+Example with a sleep :
+
+```php
+$apiClient = new \LoLApi\ApiClient(\LoLApi\ApiClient::REGION_EUW, 'my-key');
+
+for ($i = 0; $i < 100; $i++) {
+    try {
+        $apiClient->getMatchApi()->getMatchListByAccountId(2);
+    } catch (AbstractRateLimitException $e) {
+        sleep($e->getRetryAfter());
+    }
+}
+```
+
+### API implemented
+
+| API        | Version           |
+| ------------- |-------------| 
+| [Summoner API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [Match API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-missing_methods-orange.svg)|  
+| [Champion API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [Spetactor API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [Static Data API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [League API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [Status API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [Champion Mastery API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [Masteries API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+| [Runes API](https://developer.riotgames.com/api-methods/)      | ![v3](https://img.shields.io/badge/v3-latest-green.svg)|  
+
+### Contributing
+
+Please create issues if you have any problem with this library integration.
+
+If you want to contribute, create a PR, you must respect PSR-2 and your code must be tested.
+
+Thank you !
